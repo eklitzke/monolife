@@ -1,1 +1,5 @@
-Conway's game of life for the [[https://monome.org/][monome]].
+These are some programs I made for my [[https://monome.org/][monome]].
+
+=monolife= is a simulator for Conway's game of life.
+
+=percolate= is a percolation simulator.
