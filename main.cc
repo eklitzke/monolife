@@ -29,8 +29,6 @@
 
 #include <monome.h>
 
-void handle_press(const monome_event_t *e, void *data);
-
 class State {
 public:
   State() = delete;
@@ -49,7 +47,30 @@ public:
     world_b_.resize(sz, 0);
     active_ = &world_a_;
 
-    monome_register_handler(m_, MONOME_BUTTON_DOWN, handle_press, (void *)this);
+    auto OnPress = [](const monome_event_t *e, void *data) {
+      State *state = reinterpret_cast<State *>(data);
+      if (e->event_type == MONOME_BUTTON_DOWN) {
+        const int x = e->grid.x;
+        const int y = e->grid.y;
+        if (x == 0 && y == 0) {
+          if (state->started()) {
+            state->force_stop();
+          } else {
+            state->start();
+          }
+        }
+        uint8_t &val = state->at(x, y);
+        if (val) {
+          val = 0;
+          state->led_off(x, y);
+        } else {
+          val = 1;
+          state->led_on(x, y);
+        }
+      }
+    };
+
+    monome_register_handler(m_, MONOME_BUTTON_DOWN, OnPress, (void *)this);
   }
 
   void run(void) { monome_event_loop(m_); }
@@ -168,30 +189,6 @@ private:
       ;
   }
 };
-
-void handle_press(const monome_event_t *e, void *data) {
-  State *state = reinterpret_cast<State *>(data);
-  if (e->event_type == MONOME_BUTTON_DOWN) {
-    const int x = e->grid.x;
-    const int y = e->grid.y;
-    if (x == 0 && y == 0) {
-      if (state->started()) {
-        state->force_stop();
-      } else {
-        state->start();
-      }
-    }
-
-    uint8_t &val = state->at(x, y);
-    if (val) {
-      val = 0;
-      state->led_off(x, y);
-    } else {
-      val = 1;
-      state->led_on(x, y);
-    }
-  }
-}
 
 int main(int argc, char **argv) {
   int opt;
