@@ -54,8 +54,10 @@ public:
         const int y = e->grid.y;
         if (x == 0 && y == 0) {
           if (state->started()) {
-            state->force_stop();
+            state->led_on(0, 0);
+            state->pause();
           } else {
+            state->led_off(0, 0); // XXX: not strictly correct
             state->start();
           }
         }
@@ -70,6 +72,7 @@ public:
       }
     };
 
+    led_on(0, 0);
     monome_register_handler(m_, MONOME_BUTTON_DOWN, OnPress, (void *)this);
   }
 
@@ -88,46 +91,45 @@ public:
 
   void start(void) {
     started_ = true;
-    size_t living_count = 1;
 
-    while (living_count) {
+    for (;;) {
       poll_events();
-      bool a_active = active_ == &world_a_;
-      std::vector<uint8_t> &other = a_active ? world_b_ : world_a_;
+      if (started_) {
+        bool a_active = active_ == &world_a_;
+        std::vector<uint8_t> &other = a_active ? world_b_ : world_a_;
 
-      // update other vector
-      living_count = 0;
-      for (int i = 0; i < cols(); i++) {
-        for (int j = 0; j < rows(); j++) {
-          size_t nn = count_neighbors(i, j);
-          bool live = at(i, j);
-          if (live && (nn == 2 || nn == 3)) {
-            other[i * cols() + j] = 1;
-            living_count++;
-          } else if (!live && nn == 3) {
-            other[i * cols() + j] = 1;
-            living_count++;
-          } else {
-            other[i * cols() + j] = 0;
+        // update other vector
+        for (int i = 0; i < cols(); i++) {
+          for (int j = 0; j < rows(); j++) {
+            size_t nn = count_neighbors(i, j);
+            bool live = at(i, j);
+            if (live && (nn == 2 || nn == 3)) {
+              other[i * cols() + j] = 1;
+            } else if (!live && nn == 3) {
+              other[i * cols() + j] = 1;
+            } else {
+              other[i * cols() + j] = 0;
+            }
           }
         }
-      }
 
-      for (int x = 0; x < cols(); x++) {
-        for (int y = 0; y < rows(); y++) {
-          if (at(x, y) && !at(x, y, other)) {
-            led_off(x, y);
-          } else if (!at(x, y) && at(x, y, other)) {
-            led_on(x, y);
+        for (int x = 0; x < cols(); x++) {
+          for (int y = 0; y < rows(); y++) {
+            if (at(x, y) && !at(x, y, other)) {
+              led_off(x, y);
+            } else if (!at(x, y) && at(x, y, other)) {
+              led_on(x, y);
+            }
           }
         }
+        active_ = a_active ? &world_b_ : &world_a_;
       }
 
       std::this_thread::sleep_for(std::chrono::milliseconds(delay_));
-      active_ = a_active ? &world_b_ : &world_a_;
     }
-    force_stop();
   }
+
+  void pause() { started_ = false; }
 
   // hack to force break ot of event loop
   void force_stop() {
