@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <string>
 
@@ -26,20 +27,31 @@
 
 #include "./config.h"
 
+// callback function for monome events
+using event_fn = std::function<void(const monome_event_t *)>;
+
+// default event handler
+void default_event_handler(const monome_event_t *);
+
+// default keypress handler
+void on_keypress(const monome_event_t *, void *data);
+
+// handler to read events from the socket
+void on_read(evutil_socket_t fd, short what, void *arg);
+
 // Board represents a monome board.
 class Board {
 public:
-  explicit Board(const char *device) : base_(nullptr) {
-    if (device == nullptr || strlen(device) == 0) {
-      m_ = monome_open(MONOLIFE_DEFAULT_DEVICE);
-    } else {
-      m_ = monome_open(device);
-    }
-  }
+  explicit Board(const std::string &device)
+      : m_(monome_open(device.empty() ? MONOLIFE_DEFAULT_DEVICE
+                                      : device.c_str())),
+        base_(nullptr), event_fn_(default_event_handler) {}
 
-  explicit Board(const std::string &device) : Board(device.c_str()) {}
+  // default ctor uses the default device
+  Board() : Board(MONOLIFE_DEFAULT_DEVICE) {}
 
-  Board() : Board(nullptr) {}
+  // delete copy ctor
+  Board(const Board &other) = delete;
 
   ~Board() {
     if (m_ != nullptr) {
@@ -53,31 +65,15 @@ public:
   // initialize libevent
   void init_libevent() {
     base_ = event_base_new();
-
-    auto OnPress = [](const monome_event_t *e, void *data) {
-      const int x = e->grid.x;
-      const int y = e->grid.y;
-      if (e->event_type == MONOME_BUTTON_DOWN) {
-        std::cerr << "keypress DOWN at (" << x << ", " << y << ")\n";
-      } else if (e->event_type == MONOME_BUTTON_UP) {
-        std::cerr << "keypress UP at (" << x << ", " << y << ")\n";
-      }
-    };
-    monome_register_handler(m_, MONOME_BUTTON_DOWN, OnPress, nullptr);
-    monome_register_handler(m_, MONOME_BUTTON_UP, OnPress, nullptr);
+    monome_register_handler(m_, MONOME_BUTTON_DOWN, on_keypress, this);
+    monome_register_handler(m_, MONOME_BUTTON_UP, on_keypress, this);
   }
 
   // start libevent poll loop
   void start_libevent() {
-    // callback to invoke when there's data to be read from the board
-    auto read_cb = [](evutil_socket_t fd, short what, void *arg) {
-      Board *board = (Board *)arg;
-      board->poll_events();
-    };
-
     // read event
     int fd = monome_get_fd(m_);
-    auto r = event_new(base_, fd, EV_READ | EV_PERSIST, read_cb, this);
+    event *r = event_new(base_, fd, EV_READ | EV_PERSIST, on_read, this);
     event_add(r, NULL);
     event_base_dispatch(base_);
   }
@@ -108,6 +104,12 @@ public:
     monome_led_intensity(m_, intensity);
   }
 
+  // set an event function
+  void set_event_fn(event_fn fn) { event_fn_ = fn; }
+
+  // invoke the event fn
+  void invoke(const monome_event_t *event) { event_fn_(event); }
+
   // get the libevent base
   event_base *base() { return base_; }
 
@@ -117,4 +119,5 @@ public:
 private:
   monome_t *m_;
   event_base *base_;
+  event_fn event_fn_;
 };

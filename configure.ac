@@ -10,6 +10,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_LANG([C++])
 AM_INIT_AUTOMAKE([dist-bzip2 foreign subdir-objects -Wall -Werror])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
 AC_PROG_CXX
