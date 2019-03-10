@@ -29,6 +29,9 @@
 
 #include <monome.h>
 
+// The default device to use.
+const char kDefaultDevice[] = "/dev/ttyUSB0";
+
 class State {
 public:
   State() = delete;
@@ -176,6 +179,10 @@ public:
 
   void led_off(int x, int y) { monome_led_off(m_, x, y); }
 
+  void led_intensity(unsigned int brightness) {
+    monome_led_intensity(m_, brightness);
+  }
+
 private:
   monome_t *m_;
   bool started_;
@@ -195,9 +202,9 @@ private:
 int main(int argc, char **argv) {
   int opt;
   bool clear = false;
-  int millis = 100;
-  std::string device = "/dev/ttyUSB0";
-  while ((opt = getopt(argc, argv, "cd:t:")) != -1) {
+  int millis = 100, intensity = 0;
+  std::string device = kDefaultDevice;
+  while ((opt = getopt(argc, argv, "ci:d:t:")) != -1) {
     switch (opt) {
     case 'c':
       clear = true;
@@ -205,16 +212,23 @@ int main(int argc, char **argv) {
     case 'd':
       device = optarg;
       break;
+    case 'i':
+      intensity = std::stod(optarg);
+      break;
     case 't':
       millis = std::stoi(optarg);
       break;
     default: /* '?' */
-      std::cerr << "Usage: " << argv[0] << "[-c] [-d DEVICE]\n";
+      std::cerr << "Usage: " << argv[0]
+                << "[-c] [-d DEVICE] [-i INTENSITY] [-t MILLIS]\n";
       return 1;
     }
   }
 
   State state(device, millis);
+  if (intensity) {
+    state.led_intensity(intensity);
+  }
   if (!clear) {
     state.run();
   }
