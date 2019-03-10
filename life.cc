@@ -41,7 +41,9 @@ public:
     }
     clear();
 
+#if 0
     std::cout << "device has " << rows() << " rows, " << cols() << " cols\n";
+#endif
     const size_t sz = rows() * cols();
     world_a_.resize(sz, 0);
     world_b_.resize(sz, 0);
@@ -64,7 +66,6 @@ public:
   int cols() const { return monome_get_cols(m_); }
 
   void start(void) {
-    std::cout << "starting\n";
     started_ = true;
     size_t living_count = 1;
 
@@ -90,7 +91,6 @@ public:
           }
         }
       }
-      std::cout << "living " << living_count << "\n";
 
       for (int x = 0; x < cols(); x++) {
         for (int y = 0; y < rows(); y++) {
@@ -105,11 +105,19 @@ public:
       std::this_thread::sleep_for(std::chrono::milliseconds(delay_));
       active_ = a_active ? &world_b_ : &world_a_;
     }
+    force_stop();
+  }
+
+  // hack to force break ot of event loop
+  void force_stop() {
+    clear();
+    close(monome_get_fd(m_));
+    exit(EXIT_SUCCESS);
   }
 
   bool started() const { return started_; }
 
-  uint8_t& at(int x, int y, std::vector<uint8_t> &vec) {
+  uint8_t &at(int x, int y, std::vector<uint8_t> &vec) {
     const int c = cols();
     if (x < 0) {
       x += c;
@@ -126,7 +134,7 @@ public:
     return vec[x * c + y];
   }
 
-  uint8_t& at(int x, int y) { return at(x, y, *active_); }
+  uint8_t &at(int x, int y) { return at(x, y, *active_); }
 
   size_t count_neighbors(int x, int y) {
     size_t count = 0;
@@ -166,24 +174,21 @@ void handle_press(const monome_event_t *e, void *data) {
   if (e->event_type == MONOME_BUTTON_DOWN) {
     const int x = e->grid.x;
     const int y = e->grid.y;
-    std::cout << "keypress at " << x << " " << y << "\n";
-    if (state->started()) {
-      std::cout << "ignore\n";
-      return;
-    } else if (x == 0 && y == 0) {
-      state->start();
-      return;
+    if (x == 0 && y == 0) {
+      if (state->started()) {
+        state->force_stop();
+      } else {
+        state->start();
+      }
     }
 
     uint8_t &val = state->at(x, y);
     if (val) {
       val = 0;
       state->led_off(x, y);
-      std::cout << "turning off\n";
     } else {
       val = 1;
       state->led_on(x, y);
-      std::cout << "turning on\n";
     }
   }
 }
@@ -201,9 +206,9 @@ int main(int argc, char **argv) {
     case 'd':
       device = optarg;
       break;
-      case 't':
-        millis = std::stoi(optarg);
-        break;
+    case 't':
+      millis = std::stoi(optarg);
+      break;
     default: /* '?' */
       std::cerr << "Usage: " << argv[0] << "[-c] [-d DEVICE]\n";
       return 1;
@@ -214,6 +219,5 @@ int main(int argc, char **argv) {
   if (!clear) {
     state.run();
   }
-  std::cout << "done\n";
   return 0;
 }
