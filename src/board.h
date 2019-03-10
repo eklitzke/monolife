@@ -53,6 +53,18 @@ public:
   // initialize libevent
   void init_libevent() {
     base_ = event_base_new();
+
+    auto OnPress = [](const monome_event_t *e, void *data) {
+      const int x = e->grid.x;
+      const int y = e->grid.y;
+      if (e->event_type == MONOME_BUTTON_DOWN) {
+        std::cerr << "keypress DOWN at (" << x << ", " << y << ")\n";
+      } else if (e->event_type == MONOME_BUTTON_UP) {
+        std::cerr << "keypress UP at (" << x << ", " << y << ")\n";
+      }
+    };
+    monome_register_handler(m_, MONOME_BUTTON_DOWN, OnPress, nullptr);
+    monome_register_handler(m_, MONOME_BUTTON_UP, OnPress, nullptr);
   }
 
   // start libevent poll loop
@@ -60,7 +72,6 @@ public:
     // callback to invoke when there's data to be read from the board
     auto read_cb = [](evutil_socket_t fd, short what, void *arg) {
       Board *board = (Board *)arg;
-      std::cerr << "got a board event\n";
       board->poll_events();
     };
 
@@ -80,6 +91,12 @@ public:
   // set all leds to a color
   void led_all(unsigned int val) const { monome_led_all(m_, val); }
 
+  // turn an led on
+  void led_on(int x, int y) { monome_led_on(m_, x, y); }
+
+  // turn an led off
+  void led_off(int x, int y) { monome_led_off(m_, x, y); }
+
   // get the number of rows
   int rows() const { return monome_get_rows(m_); }
 
@@ -92,7 +109,7 @@ public:
   }
 
   // get the libevent base
-  event_base* base() { return base_; }
+  event_base *base() { return base_; }
 
   // is the board ok?
   bool ok() const { return m_ != nullptr; }

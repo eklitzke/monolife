@@ -1,4 +1,22 @@
-These are some programs I made for my [[https://monome.org/][monome]].
+These are some programs I made for my [[https://monome.org/][monome]]. These are all very much a WIP and
+probably not useful to anyone else besides me.
+
+** Building
+
+This is a standard autotools project, you'll need autoconf and automake
+installed to build the code.
+
+You'll also need [[https://github.com/monome/libmonome][libmonome]] and [[https://libevent.org/][libevent]] libraries and headers.
+
+#+BEGIN_SRC
+$ ./autogen.sh
+$ ./configure
+$ make
+#+END_SRC
+
+** Programs
+
+=clear= clears the board
 
 =monolife= is a simulator for Conway's game of life.
 
