@@ -1,8 +1,15 @@
+CXXFLAGS := -g -Wall
+JOBS := monolife percolate
+
 .PHONY: all
-all: monolife percolate
+all: $(JOBS)
 
 monolife: monolife.cc
-	$(CXX) -g -lmonome $< -o $@
+	$(CXX) $(CXXFLAGS) -lmonome $< -o $@
 
 percolate: percolate.cc
-	$(CXX) -g -lmonome $< -o $@
+	$(CXX) $(CXXFLAGS) -lmonome $< -o $@
+
+.PHONY: clean
+clean:
+	rm -rf $(JOBS)

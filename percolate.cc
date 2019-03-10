@@ -22,6 +22,7 @@
 #include <iostream>
 #include <memory>
 #include <random>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -30,82 +31,88 @@
 
 #include <monome.h>
 
+#include "./running_average.h"
+
 // The default device to use.
 const char kDefaultDevice[] = "/dev/ttyUSB0";
 
 class State {
 public:
   State() = delete;
-  State(const std::string &device, int delay) : started_(false), delay_(delay) {
+  State(const std::string &device, double threshold, int delay)
+      : started_(false), threshold_(threshold), delay_(delay),
+        gen_(std::random_device()()), dist_(0., 1.) {
     m_ = monome_open(device.c_str());
     if (m_ == nullptr) {
       exit(EXIT_FAILURE);
     }
-    clear();
-
-    const size_t sz = rows() * cols();
-    world_.resize(sz, 0);
+    world_.resize(rows() * cols());
   }
 
-  void generate(double threshold) {
-    std::random_device r;
-    std::default_random_engine gen{r()};
-    std::uniform_real_distribution<double> dist(0., 1.);
+  void generate() {
+    clear();
+    std::fill(world_.begin(), world_.end(), 0);
     for (int i = 0; i < cols(); i++) {
       for (int j = 0; j < rows(); j++) {
-        bool on = dist(gen) < threshold;
-        if (on) {
+        if (dist_(gen_) < threshold_.val()) {
           at(i, j) = 1;
           led_on(i, j);
-        } else {
-          at(i, j) = 0;
-          led_off(i, j);
         }
       }
     }
   }
 
   void simulate() {
-    bool percolated = false;
-    std::vector<int> prev(rows(), 1);
-    for (int i = 0; i < cols(); i++) {
+    bool percolated = true;
+    std::set<std::pair<int, int>> next;
+    for (int j = 0; j < rows(); j++) {
+      if (at(0, j)) {
+        next.insert({0, j});
+      }
+    }
+
+    for (;;) {
       std::this_thread::sleep_for(std::chrono::milliseconds(delay_));
-      std::vector<int> next(rows(), 0);
-      for (int j = 0; j < rows(); j++) {
-        if (prev[j] && !at(i, j)) {
-          next[j] = 1;
-          for (int k = j - 1; k >= 0 && !at(i, k); k--) {
-            next[k] = 1;
-          }
-          for (int k = j + 1; k < rows() && !at(i, k); k++) {
-            next[k] = 1;
-          }
+      bool reached_end = false;
+      for (const auto &pr : next) {
+        led_on(pr.first, pr.second);
+        at(pr.first, pr.second) = 1;
+        if (pr.first == cols() - 1) {
+          reached_end = true;
         }
       }
-
-      percolated = false;
-      for (size_t j = 0; j < next.size(); j++) {
-        if (next[j]) {
-        at(i, j) = 1;
-        led_on(i, j);
-        percolated = true;
-        }
-      }
-
-      if (!percolated) {
+      if (reached_end) {
         break;
       }
-      prev = next;
+
+      std::set<std::pair<int, int>> new_next;
+      for (const auto &pr : next) {
+        if (off(pr.first - 1, pr.second)) {
+          new_next.insert({pr.first - 1, pr.second});
+        }
+        if (off(pr.first + 1, pr.second)) {
+          new_next.insert({pr.first + 1, pr.second});
+        }
+        if (off(pr.first, pr.second - 1)) {
+          new_next.insert({pr.first, pr.second - 1});
+        }
+        if (off(pr.first, pr.second + 1)) {
+          new_next.insert({pr.first, pr.second + 1});
+        }
+      }
+      if (new_next.empty()) {
+        percolated = false;
+        break;
+      }
+      next.swap(new_next);
     }
 
-    // victory strobe
-    if (percolated) {
-      clear(1);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-    } else {
+    threshold_.update(percolated);
+    if (!percolated) {
       clear();
-      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+    std::cout << "threshold=" << threshold_.val() << "\n";
+    std::this_thread::sleep_for(std::chrono::seconds(1));
   }
 
   void run(void) { monome_event_loop(m_); }
@@ -146,7 +153,17 @@ public:
     } else if (y >= r) {
       y -= r;
     }
-    return world_[x * c + y];
+    return world_[x * r + y];
+  }
+
+  bool off(int x, int y) {
+    if (x < 0 || y < 0) {
+      return false;
+    }
+    if (x >= cols() || y >= rows()) {
+      return false;
+    }
+    return world_[x * rows() + y] == 0;
   }
 
   void led_on(int x, int y) { monome_led_on(m_, x, y); }
@@ -160,10 +177,14 @@ public:
 private:
   monome_t *m_;
   bool started_;
+  RunningAverage threshold_;
   int delay_;
   std::vector<uint8_t> world_;
 
-  void clear(int value=0) { monome_led_all(m_, value); }
+  std::default_random_engine gen_;
+  std::uniform_real_distribution<double> dist_;
+
+  void clear(int value = 0) { monome_led_all(m_, value); }
 
   void poll_events() {
     while (monome_event_handle_next(m_))
@@ -173,40 +194,37 @@ private:
 
 int main(int argc, char **argv) {
   int opt;
-  bool clear = false;
-  int millis = 500, intensity = 8;
-  double probability = 0.45;
+  int millis = 200, intensity = 8;
+  double threshold = 0.40;
   std::string device = kDefaultDevice;
-  while ((opt = getopt(argc, argv, "ci:d:t:p:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:d:s:t:")) != -1) {
     switch (opt) {
-    case 'c':
-      clear = true;
-      break;
     case 'd':
       device = optarg;
       break;
     case 'i':
       intensity = std::stod(optarg);
       break;
-    case 't':
+    case 's':
       millis = std::stoi(optarg);
       break;
-    case 'p':
-      probability = std::stod(optarg);
+    case 't':
+      threshold = std::stod(optarg);
       break;
     default: /* '?' */
       std::cerr << "Usage: " << argv[0]
-                << "[-c] [-d DEVICE] [-i INTENSITY] [-t MILLIS]\n";
+                << "[-c] [-d DEVICE] [-i INTENSITY] [-s SLEEPMILLIS] [-t "
+                   "THRESHOLD]\n";
       return 1;
     }
   }
 
-  State state(device, millis);
+  State state(device, threshold, millis);
   if (intensity) {
     state.led_intensity(intensity);
   }
   for (;;) {
-    state.generate(probability);
+    state.generate();
     state.simulate();
   }
   return 0;
