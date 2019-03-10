@@ -201,14 +201,10 @@ private:
 
 int main(int argc, char **argv) {
   int opt;
-  bool clear = false;
   int millis = 100, intensity = 0;
   std::string device = kDefaultDevice;
-  while ((opt = getopt(argc, argv, "ci:d:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:d:t:")) != -1) {
     switch (opt) {
-    case 'c':
-      clear = true;
-      break;
     case 'd':
       device = optarg;
       break;
@@ -220,7 +216,7 @@ int main(int argc, char **argv) {
       break;
     default: /* '?' */
       std::cerr << "Usage: " << argv[0]
-                << "[-c] [-d DEVICE] [-i INTENSITY] [-t MILLIS]\n";
+                << " [-d DEVICE] [-i INTENSITY] [-t MILLIS]\n";
       return 1;
     }
   }
@@ -229,8 +225,6 @@ int main(int argc, char **argv) {
   if (intensity) {
     state.led_intensity(intensity);
   }
-  if (!clear) {
-    state.run();
-  }
+  state.run();
   return 0;
 }
