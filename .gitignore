@@ -1,2 +1,7 @@
+*.log
+*.scan
+Makefile
+build-aux/
+configure
 monolife
 percolate
