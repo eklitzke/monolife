@@ -54,6 +54,8 @@ public:
   void step() {
     switch (state_) {
     case State::GENERATE:
+      std::cout << "step=" << threshold_.count()
+                << " threshold=" << threshold_.val() << "\n";
       generate();
       state_ = State::STEP;
       break;
@@ -62,8 +64,6 @@ public:
       break;
     case State::VICTORY:
     case State::FAIL:
-      std::cout << "step=" << (threshold_.count() - 1)
-                << " threshold=" << threshold_.val() << "\n";
       state_ = State::GENERATE;
       break;
     }
@@ -85,7 +85,7 @@ public:
     // set up the next set of leds
     next_.clear();
     for (int j = 0; j < board_.rows(); j++) {
-      if (at(0, j)) {
+      if (off(0, j)) {
         next_.insert({0, j});
       }
     }
@@ -207,9 +207,7 @@ int main(int argc, char **argv) {
   if (intensity) {
     state.board().led_intensity(intensity);
   }
-  if (threshold) {
-    state.set_threshold(RunningAverage(threshold));
-  }
+  state.set_threshold(RunningAverage(threshold));
 
   Board &board = state.board();
   board.init_libevent();
