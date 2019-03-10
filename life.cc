@@ -1,10 +1,10 @@
+#include <chrono>
 #include <iostream>
+#include <string>
+#include <thread>
 #include <vector>
 
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include <unistd.h>
 
 #include <monome.h>
 
@@ -23,8 +23,9 @@ void handle_press(const monome_event_t *e, void *data);
 
 class State {
 public:
-  State() : started_(false) {
-    m_ = monome_open("/dev/ttyUSB0");
+  State() = delete;
+  explicit State(const std::string &device) : started_(false) {
+    m_ = monome_open(device.c_str());
     if (m_ == nullptr) {
       exit(EXIT_FAILURE);
     }
@@ -63,10 +64,7 @@ public:
     monome_register_handler(m_, MONOME_BUTTON_DOWN, handle_press, (void *)this);
   }
 
-  void run(void) {
-    std::cout << "run\n";
-    monome_event_loop(m_);
-  }
+  void run(void) { monome_event_loop(m_); }
 
   ~State() {
     clear();
@@ -139,8 +137,7 @@ public:
           }
         }
       }
-
-      chill(50);
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   }
 
@@ -162,20 +159,7 @@ private:
   bool started_;
   std::vector<std::vector<cell_t>> world_;
 
-  void chill(int msec) {
-    struct timespec rem, req;
-
-    req.tv_nsec = msec * 1000000;
-    req.tv_sec = req.tv_nsec / 1000000000;
-    req.tv_nsec -= req.tv_sec * 1000000000;
-
-    nanosleep(&req, &rem);
-  }
-
-  void clear() {
-    std::cout << "clear\n";
-    monome_led_all(m_, 0);
-  }
+  void clear() { monome_led_all(m_, 0); }
 };
 
 void handle_press(const monome_event_t *e, void *data) {
@@ -210,7 +194,24 @@ void handle_press(const monome_event_t *e, void *data) {
 }
 
 int main(int argc, char **argv) {
-  State state;
+  int opt;
+  bool clear = false;
+  std::string device = "/dev/ttyUSB0";
+  while ((opt = getopt(argc, argv, "cd:")) != -1) {
+    switch (opt) {
+    case 'c':
+      clear = true;
+      break;
+    case 'd':
+      device = optarg;
+      break;
+    default: /* '?' */
+      std::cerr << "Usage: " << argv[0] << "[-c] [-d DEVICE]\n";
+      return 1;
+    }
+  }
+
+  State state(device);
   state.run();
   return 0;
 }
