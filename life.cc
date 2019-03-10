@@ -31,15 +31,13 @@ public:
     }
     clear();
 
-    const int rows = get_rows();
-    const int cols = get_cols();
-
-    for (int i = 0; i < cols; i++) {
-      world_.push_back(std::vector<cell_t>(rows));
+    std::cout << "device has " << rows() << " rows, " << cols() << " cols\n";
+    for (int i = 0; i < cols(); i++) {
+      world_.push_back(std::vector<cell_t>(rows()));
     }
 
-    for (int x = 0; x < cols; x++) {
-      for (int y = 0; y < rows; y++) {
+    for (int x = 0; x < cols(); x++) {
+      for (int y = 0; y < rows(); y++) {
         cell_t *c = &world_[x][y];
 
         c->mod_next = 0;
@@ -48,16 +46,16 @@ public:
         c->x = x;
         c->y = y;
 
-        c->neighbors[0] = &world_[(x - 1) % cols][(y - 1) % rows];
-        c->neighbors[1] = &world_[(x - 1) % cols][(y + 1) % rows];
-        c->neighbors[2] = &world_[(x - 1) % cols][y];
+        c->neighbors[0] = &world_[(x - 1) % cols()][(y - 1) % rows()];
+        c->neighbors[1] = &world_[(x - 1) % cols()][(y + 1) % rows()];
+        c->neighbors[2] = &world_[(x - 1) % cols()][y];
 
-        c->neighbors[3] = &world_[(x + 1) % cols][(y - 1) % rows];
-        c->neighbors[4] = &world_[(x + 1) % cols][(y + 1) % rows];
-        c->neighbors[5] = &world_[(x + 1) % cols][y];
+        c->neighbors[3] = &world_[(x + 1) % cols()][(y - 1) % rows()];
+        c->neighbors[4] = &world_[(x + 1) % cols()][(y + 1) % rows()];
+        c->neighbors[5] = &world_[(x + 1) % cols()][y];
 
-        c->neighbors[6] = &world_[x][(y - 1) % rows];
-        c->neighbors[7] = &world_[x][(y + 1) % rows];
+        c->neighbors[6] = &world_[x][(y - 1) % rows()];
+        c->neighbors[7] = &world_[x][(y + 1) % rows()];
       }
     }
 
@@ -71,8 +69,8 @@ public:
     monome_close(m_);
   }
 
-  int get_rows() const { return monome_get_rows(m_); }
-  int get_cols() const { return monome_get_cols(m_); }
+  int rows() const { return monome_get_rows(m_); }
+  int cols() const { return monome_get_cols(m_); }
 
   void start(void) {
     std::cout << "starting\n";
@@ -86,11 +84,8 @@ public:
         while (monome_event_handle_next(m_))
           ;
 
-      const int rows = get_rows();
-      const int cols = get_cols();
-
-      for (int x = 0; x < cols; x++) {
-        for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols(); x++) {
+        for (int y = 0; y < rows(); y++) {
           cell_t &c = world(x, y);
 
           if (c.mod_next) {
@@ -112,8 +107,8 @@ public:
       }
 
       any_living = false;
-      for (int x = 0; x < cols; x++) {
-        for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols(); x++) {
+        for (int y = 0; y < rows(); y++) {
           cell_t &c = world(x, y);
 
           switch (c.nnum) {
@@ -212,6 +207,8 @@ int main(int argc, char **argv) {
   }
 
   State state(device);
-  state.run();
+  if (!clear) {
+    state.run();
+  }
   return 0;
 }
