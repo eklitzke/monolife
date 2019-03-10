@@ -1,4 +1,4 @@
-CXXFLAGS := -g -Wall
+CXXFLAGS := -g -Wall -O2
 JOBS := monolife percolate
 
 .PHONY: all

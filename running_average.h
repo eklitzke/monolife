@@ -21,15 +21,17 @@
 
 class RunningAverage {
 public:
-  RunningAverage() : count_(0), val_(0.5) {}
+  RunningAverage() : count_(1), val_(0.5) {}
   explicit RunningAverage(double start) : count_(1), val_(start) {}
+  RunningAverage(double start, size_t count) : count_(count), val_(start) {}
 
   void update(double input) {
     double scale = 1. / static_cast<double>(++count_);
     val_ = input * scale + val_ * (1. - scale);
   }
 
-  double val() const { return val_; }
+  inline size_t count() const { return count_; }
+  inline double val() const { return val_; }
 
 private:
   size_t count_;
