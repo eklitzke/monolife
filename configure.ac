@@ -17,6 +17,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 # Checks for libraries.
+AC_CHECK_LIB([event], [event_base_new])
 AC_CHECK_LIB([monome], [monome_open])
 
 # Checks for header files.

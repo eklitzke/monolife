@@ -18,36 +18,86 @@
 #pragma once
 
 #include <cstring>
+#include <iostream>
 #include <string>
 
+#include <event2/event.h>
 #include <monome.h>
 
 #include "./config.h"
 
+// Board represents a monome board.
 class Board {
 public:
-  explicit Board(const char *device) {
+  explicit Board(const char *device) : base_(nullptr) {
     if (device == nullptr || strlen(device) == 0) {
       m_ = monome_open(MONOLIFE_DEFAULT_DEVICE);
     } else {
       m_ = monome_open(device);
     }
   }
+
   explicit Board(const std::string &device) : Board(device.c_str()) {}
+
   Board() : Board(nullptr) {}
-  ~Board() { monome_close(m_); }
+
+  ~Board() {
+    if (m_ != nullptr) {
+      monome_close(m_);
+    }
+    if (base_ != nullptr) {
+      event_base_free(base_);
+    }
+  }
+
+  // initialize libevent
+  void init_libevent() {
+    base_ = event_base_new();
+  }
+
+  // start libevent poll loop
+  void start_libevent() {
+    // callback to invoke when there's data to be read from the board
+    auto read_cb = [](evutil_socket_t fd, short what, void *arg) {
+      Board *board = (Board *)arg;
+      std::cerr << "got a board event\n";
+      board->poll_events();
+    };
+
+    // read event
+    int fd = monome_get_fd(m_);
+    auto r = event_new(base_, fd, EV_READ | EV_PERSIST, read_cb, this);
+    event_add(r, NULL);
+    event_base_dispatch(base_);
+  }
+
+  // poll for events
+  void poll_events() {
+    while (monome_event_handle_next(m_))
+      ;
+  }
 
   // set all leds to a color
   void led_all(unsigned int val) const { monome_led_all(m_, val); }
+
+  // get the number of rows
+  int rows() const { return monome_get_rows(m_); }
+
+  // get the number of columns
+  int cols() const { return monome_get_cols(m_); }
 
   // set the led intensity
   void led_intensity(unsigned int intensity) const {
     monome_led_intensity(m_, intensity);
   }
 
+  // get the libevent base
+  event_base* base() { return base_; }
+
   // is the board ok?
   bool ok() const { return m_ != nullptr; }
 
 private:
   monome_t *m_;
+  event_base *base_;
 };
