@@ -1,4 +1,4 @@
 bin_PROGRAMS = clear monolife percolate
-clear_SOURCES = clear.cc
-monolife_SOURCES = monolife.cc
-percolate_SOURCES = percolate.cc running_average.h
+clear_SOURCES = config.h board.h clear.cc
+monolife_SOURCES = config.h monolife.cc
+percolate_SOURCES = config.h percolate.cc running_average.h

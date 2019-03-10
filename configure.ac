@@ -29,6 +29,7 @@ AC_TYPE_UINT8_T
 
 # Checks for library functions.
 
+AC_DEFINE([MONOLIFE_DEFAULT_DEVICE], ["/dev/ttyUSB0"], [The default device to use.])
 AS_COMPILER_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
 
 AC_CONFIG_FILES([Makefile

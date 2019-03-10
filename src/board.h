@@ -15,36 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
-#include <string>
+#pragma once
 
-#include <unistd.h>
+#include <cstring>
+#include <string>
 
 #include <monome.h>
 
-#include "./board.h"
+#include "./config.h"
 
-int main(int argc, char **argv) {
-  int opt;
-  int intensity = 0;
-  std::string device = "";
-  while ((opt = getopt(argc, argv, "i:d:")) != -1) {
-    switch (opt) {
-    case 'd':
-      device = optarg;
-      break;
-    case 'i':
-      intensity = std::stod(optarg);
-      break;
-    default: /* '?' */
-      std::cerr << "Usage: " << argv[0] << " [-d DEVICE] [-i INTENSITY]\n";
-      return 1;
+class Board {
+public:
+  explicit Board(const char *device) {
+    if (device == nullptr || strlen(device) == 0) {
+      m_ = monome_open(MONOLIFE_DEFAULT_DEVICE);
+    } else {
+      m_ = monome_open(device);
     }
   }
-  Board board(device);
-  if (intensity) {
-    board.led_intensity(intensity);
+  explicit Board(const std::string &device) : Board(device.c_str()) {}
+  Board() : Board(nullptr) {}
+  ~Board() { monome_close(m_); }
+
+  // set all leds to a color
+  void led_all(unsigned int val) const { monome_led_all(m_, val); }
+
+  // set the led intensity
+  void led_intensity(unsigned int intensity) const {
+    monome_led_intensity(m_, intensity);
   }
-  board.led_all(0);
-  return 0;
-}
+
+  // is the board ok?
+  bool ok() const { return m_ != nullptr; }
+
+private:
+  monome_t *m_;
+};
