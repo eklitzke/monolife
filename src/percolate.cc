@@ -47,6 +47,17 @@ public:
       : board_(device), state_(State::GENERATE), gen_(std::random_device()()),
         dist_(0., 1.) {
     world_.resize(board_.rows() * board_.cols());
+
+    // set a callback to handle button down events
+    board_.set_event_fn([this](const monome_event_t *event) {
+      if (event->event_type == MONOME_BUTTON_DOWN) {
+        std::cout << "DOWN event at " << event->grid.x << " " << event->grid.y
+                  << "\n";
+        const int brightness = 16 * event->grid.y / board_.rows();
+        std::cout << "setting brightness to " << brightness << "\n";
+        board_.led_intensity(brightness);
+      }
+    });
   }
 
   ~BoardState() { board_.led_all(0); }
