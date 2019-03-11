@@ -85,9 +85,10 @@ public:
       state_ = State::GENERATE;
       break;
     }
-    auto t = evtimer_new(board_.base(), step_cb, this);
+
+    // re-schedule step() with the current delay
     const timeval tv = delay();
-    evtimer_add(t, &tv);
+    evtimer_add(t_, &tv);
   }
 
   // generate a new board state
@@ -155,8 +156,8 @@ public:
   void run(int millis) {
     board_.init_libevent();
     delay_ = millis;
-    auto t = evtimer_new(board_.base(), step_cb, this);
-    event_active(t, 0, 0);
+    t_ = evtimer_new(board_.base(), step_cb, this);
+    event_active(t_, 0, 0);
     board_.start_libevent();
   }
 
@@ -169,6 +170,7 @@ private:
   RunningAverage threshold_;
   std::vector<uint8_t> world_;
   int delay_;
+  event *t_;
 
   std::default_random_engine gen_;
   std::uniform_real_distribution<double> dist_;
