@@ -39,6 +39,9 @@ enum class State {
   FAIL = 4,
 };
 
+// step callback
+static void step_cb(evutil_socket_t fd, short what, void *arg);
+
 // The board state.
 class BoardState {
 public:
@@ -56,6 +59,10 @@ public:
         const int brightness = 16 * event->grid.y / board_.rows();
         std::cout << "setting brightness to " << brightness << "\n";
         board_.led_intensity(brightness);
+
+        const int delay = 25 * (1 + event->grid.x);
+        std::cout << "setting delay to " << delay << "\n";
+        delay_ = delay;
       }
     });
   }
@@ -78,6 +85,9 @@ public:
       state_ = State::GENERATE;
       break;
     }
+    auto t = evtimer_new(board_.base(), step_cb, this);
+    const timeval tv = delay();
+    evtimer_add(t, &tv);
   }
 
   // generate a new board state
@@ -142,6 +152,14 @@ public:
   // set the density threshold
   void set_threshold(const RunningAverage &avg) { threshold_ = avg; }
 
+  void run(int millis) {
+    board_.init_libevent();
+    delay_ = millis;
+    auto t = evtimer_new(board_.base(), step_cb, this);
+    event_active(t, 0, 0);
+    board_.start_libevent();
+  }
+
   Board &board() { return board_; }
 
 private:
@@ -150,6 +168,7 @@ private:
   std::set<std::pair<int, int>> next_;
   RunningAverage threshold_;
   std::vector<uint8_t> world_;
+  int delay_;
 
   std::default_random_engine gen_;
   std::uniform_real_distribution<double> dist_;
@@ -185,6 +204,9 @@ private:
     }
     return world_[x * r + y];
   }
+
+  // convert milliseconds to a timeval
+  timeval delay(void) const { return {delay_ / 1000, (delay_ % 1000) * 1000}; }
 };
 
 int main(int argc, char **argv) {
@@ -219,18 +241,11 @@ int main(int argc, char **argv) {
     state.board().led_intensity(intensity);
   }
   state.set_threshold(RunningAverage(threshold));
-
-  Board &board = state.board();
-  board.init_libevent();
-  event_base *base = board.base();
-  struct timeval delay = {millis / 1000, (millis % 1000) * 1000};
-  auto t = event_new(base, -1, EV_TIMEOUT | EV_PERSIST,
-                     [](evutil_socket_t fd, short what, void *arg) {
-                       BoardState *state = (BoardState *)arg;
-                       state->step();
-                     },
-                     &state);
-  event_add(t, &delay);
-  board.start_libevent();
+  state.run(millis);
   return 0;
+}
+
+static void step_cb(evutil_socket_t fd, short what, void *arg) {
+  BoardState *state = (BoardState *)arg;
+  state->step();
 }

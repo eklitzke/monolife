@@ -31,13 +31,13 @@
 using event_fn = std::function<void(const monome_event_t *)>;
 
 // default event handler
-void default_event_handler(const monome_event_t *);
+static void default_event_handler(const monome_event_t *);
 
 // default keypress handler
-void on_keypress(const monome_event_t *, void *data);
+static void on_keypress(const monome_event_t *, void *data);
 
 // handler to read events from the socket
-void on_read(evutil_socket_t fd, short what, void *arg);
+static void on_read(evutil_socket_t fd, short what, void *arg);
 
 // Board represents a monome board.
 class Board {
@@ -121,3 +121,23 @@ private:
   event_base *base_;
   event_fn event_fn_;
 };
+
+// default event handler
+static void default_event_handler(const monome_event_t *e) {
+  const int x = e->grid.x;
+  const int y = e->grid.y;
+  if (e->event_type == MONOME_BUTTON_DOWN) {
+    std::cout << "KEY DOWN ";
+  } else if (e->event_type == MONOME_BUTTON_UP) {
+    std::cout << "KEY UP   ";
+  }
+  std::cout << x << " " << y << "\n";
+}
+
+static void on_keypress(const monome_event_t *e, void *data) {
+  reinterpret_cast<Board *>(data)->invoke(e);
+}
+
+static void on_read(evutil_socket_t fd, short what, void *arg) {
+  reinterpret_cast<Board *>(arg)->poll_events();
+}
