@@ -30,7 +30,9 @@
 #include <monome.h>
 
 #include "./board.h"
+#include "./persistent_mutable_timer.h"
 #include "./running_average.h"
+#include "./util.h"
 
 enum class State {
   GENERATE = 1,
@@ -47,7 +49,8 @@ class BoardState {
 public:
   BoardState() = delete;
   explicit BoardState(const std::string &device)
-      : board_(device), state_(State::GENERATE), gen_(std::random_device()()),
+      : board_(device),
+        state_(State::GENERATE), gen_(std::random_device()()),
         dist_(0., 1.) {
     world_.resize(board_.rows() * board_.cols());
 
@@ -62,7 +65,7 @@ public:
 
         const int delay = 25 * (1 + event->grid.x);
         std::cout << "setting delay to " << delay << "\n";
-        delay_ = delay;
+        timer_.UpdateTimeout(delay);
       }
     });
   }
@@ -86,9 +89,7 @@ public:
       break;
     }
 
-    // re-schedule step() with the current delay
-    const timeval tv = delay();
-    evtimer_add(t_, &tv);
+    timer_.Reschedule();
   }
 
   // generate a new board state
@@ -155,9 +156,7 @@ public:
 
   void run(int millis) {
     board_.init_libevent();
-    delay_ = millis;
-    t_ = evtimer_new(board_.base(), step_cb, this);
-    event_active(t_, 0, 0);
+    timer_ = PersistentMutableTimer(board_.base(), step_cb, this, millis);
     board_.start_libevent();
   }
 
@@ -169,8 +168,7 @@ private:
   std::set<std::pair<int, int>> next_;
   RunningAverage threshold_;
   std::vector<uint8_t> world_;
-  int delay_;
-  event *t_;
+  PersistentMutableTimer timer_;
 
   std::default_random_engine gen_;
   std::uniform_real_distribution<double> dist_;
@@ -206,9 +204,6 @@ private:
     }
     return world_[x * r + y];
   }
-
-  // convert milliseconds to a timeval
-  timeval delay(void) const { return {delay_ / 1000, (delay_ % 1000) * 1000}; }
 };
 
 int main(int argc, char **argv) {
@@ -248,6 +243,7 @@ int main(int argc, char **argv) {
 }
 
 static void step_cb(evutil_socket_t fd, short what, void *arg) {
-  BoardState *state = (BoardState *)arg;
-  state->step();
+  UNUSED(fd);
+  UNUSED(what);
+  ((BoardState *)arg)->step();
 }
