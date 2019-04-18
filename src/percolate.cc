@@ -205,6 +205,11 @@ private:
   }
 };
 
+// Print a fatal exception
+static inline void PrintFatalError(const std::runtime_error &exc) {
+  std::cerr << "fatal error: " << exc.what() << "\n";
+}
+
 int main(int argc, char **argv) {
   int opt;
   int millis = 100, intensity = 8;
@@ -225,9 +230,9 @@ int main(int argc, char **argv) {
       threshold = std::stod(optarg);
       break;
     default: /* '?' */
-      std::cerr << "Usage: " << argv[0]
-                << "[-c] [-d DEVICE] [-i INTENSITY] [-s SLEEPMILLIS] [-t "
-                   "THRESHOLD]\n";
+      std::cerr
+          << "Usage: " << argv[0]
+          << "[-d DEVICE] [-i INTENSITY] [-s SLEEPMILLIS] [-t THRESHOLD]\n";
       return 1;
     }
   }
@@ -240,7 +245,7 @@ int main(int argc, char **argv) {
     state.set_threshold(RunningAverage(threshold));
     state.run(millis);
   } catch (std::runtime_error &exc) {
-    std::cerr << "error: " << exc.what() << "\n";
+    PrintFatalError(exc);
     return 1;
   }
   return 0;
@@ -249,5 +254,11 @@ int main(int argc, char **argv) {
 static void step_cb(evutil_socket_t fd, short what, void *arg) {
   UNUSED(fd);
   UNUSED(what);
-  ((BoardState *)arg)->step();
+  BoardState *state = reinterpret_cast<BoardState *>(arg);
+  try {
+    state->step();
+  } catch (const std::runtime_error &exc) {
+    PrintFatalError(exc);
+    event_base_loopbreak(state->board().base());
+  }
 }

@@ -80,8 +80,14 @@ public:
   // start libevent poll loop
   void start_libevent() {
     // read event
-    int fd = monome_get_fd(m_);
+    const int fd = monome_get_fd(m_);
+    if (fd == -1) {
+      throw std::runtime_error("monome_get_fd returned -1");
+    }
     event *r = event_new(base_, fd, EV_READ | EV_PERSIST, on_read, this);
+    if (r == nullptr) {
+      throw std::runtime_error("event_new returned -1");
+    }
     event_add(r, NULL);
     event_base_dispatch(base_);
   }
