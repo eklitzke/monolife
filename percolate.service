@@ -1,0 +1,11 @@
+[Unit]
+Description=Percolate service
+
+[Service]
+Type=simple
+ExecStart=%h/monolife/src/percolate
+Restart=always
+RestartSec=30s
+
+[Install]
+WantedBy=default.target
