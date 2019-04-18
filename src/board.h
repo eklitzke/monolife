@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstring>
 #include <filesystem>
 #include <functional>
@@ -42,14 +43,16 @@ static void on_keypress(const monome_event_t *, void *data);
 static void on_read(evutil_socket_t fd, short what, void *arg);
 
 // find an appropriate board device
-static std::string findBoardDevice(const std::string &dev);
+static monome_t *findBoardDevice(const std::string &dev);
 
 // Board represents a monome board.
 class Board {
 public:
   explicit Board(const std::string &device)
-      : m_(monome_open(findBoardDevice(device).c_str())), base_(nullptr),
-        event_fn_(default_event_handler) {}
+      : m_(findBoardDevice(device)), base_(nullptr),
+        event_fn_(default_event_handler) {
+    assert(ok());
+  }
 
   // default ctor uses the default device
   Board() : Board("") {}
@@ -146,18 +149,23 @@ static void on_read(evutil_socket_t fd, short what, void *arg) {
   reinterpret_cast<Board *>(arg)->poll_events();
 }
 
-static std::string findBoardDevice(const std::string &dev) {
+static monome_t *findBoardDevice(const std::string &dev) {
+  monome_t *m;
   if (!dev.empty()) {
-    if (!std::filesystem::exists(dev)) {
-      throw std::runtime_error("no such device: " + dev);
+    m = monome_open(dev.c_str());
+    if (m == nullptr) {
+      if (!std::filesystem::exists(dev)) {
+        throw std::runtime_error("no such device: " + dev);
+      } else {
+        throw std::runtime_error("device " + dev +
+                                 " is not a valid monome TTY");
+      }
     }
-    return dev;
+    return m;
   }
-  std::string device;
-  for (int i = 10; i >= 0; i--) {
-    device = devicePrefix + std::to_string(i);
-    if (std::filesystem::exists(device)) {
-      return device;
+  for (size_t i = 0; i < 10; i++) {
+    if ((m = monome_open((devicePrefix + std::to_string(i)).c_str()))) {
+      return m;
     }
   }
   throw std::runtime_error("failed to autodetect monome TTY device");

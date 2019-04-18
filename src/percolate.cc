@@ -51,9 +51,6 @@ public:
   explicit BoardState(const std::string &device)
       : board_(device), state_(State::GENERATE), gen_(std::random_device()()),
         dist_(0., 1.) {
-    if (!board_.ok()) {
-      throw std::runtime_error("failed to create board from device " + device);
-    }
     world_.resize(board_.rows() * board_.cols());
 
     // set a callback to handle button down events

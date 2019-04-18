@@ -34,6 +34,7 @@ AC_TYPE_UINT8_T
 AC_CHECK_FUNCS([gettimeofday])
 
 AS_COMPILER_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
+AS_COMPILER_FLAG([-Werror], [AX_APPEND_FLAG([-Werror])])
 AS_COMPILER_FLAG([-std=c++17], [AX_APPEND_FLAG([-std=c++17])])
 
 AC_CONFIG_FILES([Makefile
