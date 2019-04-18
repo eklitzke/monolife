@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -25,7 +26,8 @@
 #include <event2/event.h>
 #include <monome.h>
 
-#include "./config.h"
+// the prefix for the board device
+static const std::string devicePrefix = "/dev/ttyUSB";
 
 // callback function for monome events
 using event_fn = std::function<void(const monome_event_t *)>;
@@ -39,16 +41,18 @@ static void on_keypress(const monome_event_t *, void *data);
 // handler to read events from the socket
 static void on_read(evutil_socket_t fd, short what, void *arg);
 
+// find an appropriate board device
+static std::string findBoardDevice(const std::string &dev);
+
 // Board represents a monome board.
 class Board {
 public:
   explicit Board(const std::string &device)
-      : m_(monome_open(device.empty() ? MONOLIFE_DEFAULT_DEVICE
-                                      : device.c_str())),
-        base_(nullptr), event_fn_(default_event_handler) {}
+      : m_(monome_open(findBoardDevice(device).c_str())), base_(nullptr),
+        event_fn_(default_event_handler) {}
 
   // default ctor uses the default device
-  Board() : Board(MONOLIFE_DEFAULT_DEVICE) {}
+  Board() : Board("") {}
 
   // delete copy ctor
   Board(const Board &other) = delete;
@@ -140,4 +144,21 @@ static void on_keypress(const monome_event_t *e, void *data) {
 
 static void on_read(evutil_socket_t fd, short what, void *arg) {
   reinterpret_cast<Board *>(arg)->poll_events();
+}
+
+static std::string findBoardDevice(const std::string &dev) {
+  if (!dev.empty()) {
+    if (!std::filesystem::exists(dev)) {
+      throw std::runtime_error("no such device: " + dev);
+    }
+    return dev;
+  }
+  std::string device;
+  for (int i = 10; i >= 0; i--) {
+    device = devicePrefix + std::to_string(i);
+    if (std::filesystem::exists(device)) {
+      return device;
+    }
+  }
+  throw std::runtime_error("failed to autodetect monome TTY device");
 }

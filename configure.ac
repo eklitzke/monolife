@@ -22,17 +22,19 @@ AC_CHECK_LIB([event], [event_base_new])
 AC_CHECK_LIB([monome], [monome_open])
 
 # Checks for header files.
-AC_CHECK_HEADERS([unistd.h])
+AC_CHECK_HEADERS([sys/time.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
+AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
+AC_CHECK_FUNCS([gettimeofday])
 
-AC_DEFINE([MONOLIFE_DEFAULT_DEVICE], ["/dev/ttyUSB0"], [The default device to use.])
 AS_COMPILER_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
+AS_COMPILER_FLAG([-std=c++17], [AX_APPEND_FLAG([-std=c++17])])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile])

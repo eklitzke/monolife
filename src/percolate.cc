@@ -49,9 +49,11 @@ class BoardState {
 public:
   BoardState() = delete;
   explicit BoardState(const std::string &device)
-      : board_(device),
-        state_(State::GENERATE), gen_(std::random_device()()),
+      : board_(device), state_(State::GENERATE), gen_(std::random_device()()),
         dist_(0., 1.) {
+    if (!board_.ok()) {
+      throw std::runtime_error("failed to create board from device " + device);
+    }
     world_.resize(board_.rows() * board_.cols());
 
     // set a callback to handle button down events
@@ -233,12 +235,17 @@ int main(int argc, char **argv) {
     }
   }
 
-  BoardState state(device);
-  if (intensity) {
-    state.board().led_intensity(intensity);
+  try {
+    BoardState state(device);
+    if (intensity) {
+      state.board().led_intensity(intensity);
+    }
+    state.set_threshold(RunningAverage(threshold));
+    state.run(millis);
+  } catch (std::runtime_error &exc) {
+    std::cerr << "error: " << exc.what() << "\n";
+    return 1;
   }
-  state.set_threshold(RunningAverage(threshold));
-  state.run(millis);
   return 0;
 }
 
