@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include <event2/event.h>
@@ -92,13 +93,29 @@ public:
   }
 
   // set all leds to a color
-  void led_all(unsigned int val) const { monome_led_all(m_, val); }
+  void led_all(unsigned int val) const {
+    if (monome_led_all(m_, val) == -1) {
+      throw std::runtime_error("failed to led_all");
+    }
+  }
 
   // turn an led on
-  void led_on(int x, int y) { monome_led_on(m_, x, y); }
+  void led_on(int x, int y) const {
+    if (monome_led_on(m_, x, y) == -1) {
+      std::ostringstream os;
+      os << "failed to led_on at position " << x << ", " << y;
+      throw std::runtime_error(os.str());
+    }
+  }
 
   // turn an led off
-  void led_off(int x, int y) { monome_led_off(m_, x, y); }
+  void led_off(int x, int y) const {
+    if (monome_led_off(m_, x, y) == -1) {
+      std::ostringstream os;
+      os << "failed to led_off at position " << x << ", " << y;
+      throw std::runtime_error(os.str());
+    }
+  }
 
   // get the number of rows
   int rows() const { return monome_get_rows(m_); }
