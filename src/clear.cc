@@ -45,6 +45,6 @@ int main(int argc, char **argv) {
   if (intensity) {
     board.led_intensity(intensity);
   }
-  board.led_all(0);
+  board.clear();
   return 0;
 }

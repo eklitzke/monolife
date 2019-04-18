@@ -69,8 +69,6 @@ public:
     });
   }
 
-  ~BoardState() { board_.led_all(0); }
-
   void step() {
     switch (state_) {
     case State::GENERATE:

@@ -63,6 +63,7 @@ public:
 
   ~Board() {
     if (m_ != nullptr) {
+      clear();
       monome_close(m_);
     }
     if (base_ != nullptr) {
@@ -104,6 +105,9 @@ public:
       throw std::runtime_error("failed to led_all");
     }
   }
+
+  // force clear the board; note that this does not do any error checking
+  void clear() const { monome_led_all(m_, 0); }
 
   // turn an led on
   void led_on(int x, int y) const {
